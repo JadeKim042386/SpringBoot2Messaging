@@ -28,11 +28,9 @@ public class WebSocketHandler extends TextWebSocketHandler {
      */
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
-        Optional.ofNullable((Authentication) session.getPrincipal())
-                .ifPresentOrElse(
-                        a -> sessions.put(String.valueOf(((MemberPrincipal) a.getPrincipal()).id()), session),
-                        () -> new RuntimeException("current not signin")
-                );
+        String principalId = getPrincipalId(session);
+        //유저의 id를 key값으로하여 session을 저장한다.
+        sessions.put(principalId, session);
     }
 
     /**
@@ -67,6 +65,13 @@ public class WebSocketHandler extends TextWebSocketHandler {
      */
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
-        sessions.remove(session.getId());
+        sessions.remove(getPrincipalId(session));
+    }
+
+    private String getPrincipalId(WebSocketSession session) {
+        //session으로부터 principal을 가져와 현재 인증된 유저의 id를 얻는다. 없다면 예외가 발생한다.
+        return Optional.ofNullable((Authentication) session.getPrincipal())
+                .map(a -> String.valueOf(((MemberPrincipal) a.getPrincipal()).id()))
+                .orElseThrow(() -> new RuntimeException("current not signin"));
     }
 }
