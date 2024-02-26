@@ -1,4 +1,4 @@
-package joo.example.springwebsocket.config;
+package joo.example.messagestompwebsocket.config;
 
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;

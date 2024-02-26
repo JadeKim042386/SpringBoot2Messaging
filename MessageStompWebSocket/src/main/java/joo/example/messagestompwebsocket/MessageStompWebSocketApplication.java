@@ -1,13 +1,13 @@
-package joo.example.springwebsocket;
+package joo.example.messagestompwebsocket;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class SpringWebSocketApplication {
+public class MessageStompWebSocketApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(SpringWebSocketApplication.class, args);
+        SpringApplication.run(MessageStompWebSocketApplication.class, args);
     }
 
 }
