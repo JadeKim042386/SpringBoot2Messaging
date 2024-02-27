@@ -1,0 +1,10 @@
+version: '1'
+services:
+  rabbitmq:
+    container_name: rabbitmq-test
+    build:
+      dockerfile: Dockerfile
+    image: rabbitmq
+    ports:
+      - "15672:15672"
+      - "5672:5672"
