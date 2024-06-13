@@ -1,12 +1,18 @@
 package joo.example.messagewithrabbitmq;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.*;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
-import org.springframework.amqp.rabbit.listener.SimpleMessageListenerContainer;
-import org.springframework.amqp.rabbit.listener.adapter.MessageListenerAdapter;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
+import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.HashMap;
+import java.util.Map;
+
+@Slf4j
 @Configuration
 public class RabbitMQConfig {
     static final String topicExchangeName = "spring-boot-topic-exchange";
@@ -16,15 +22,36 @@ public class RabbitMQConfig {
 
     static final String queueName = "spring-boot";
 
+    static final String dlqExchangeName = topicExchangeName + ".dlx";
+    static final String dlqQueueName = queueName + ".dlq";
+
+    static final String parkingLotExchangeName = topicExchangeName + ".parking-lot";
+    static final String parkingLotQueueName = queueName + ".parking-lot";
+
     /**
      * 큐 생성
      */
     @Bean
     Queue queue() {
-        //durable이 true일 경우 디스크에 저장되며, false면 메모리에 저장
-        //exclusive가 true일 경우 특정 연결에 대한 접근을 제한하고 해당 연결이 종료되면 자동으로 삭제
-        //autoDelete가 true일 경우 모든 consumer와 disconnect된 queue를 자동 삭제
-        return new Queue(queueName, false);
+        Map<String, Object> args = new HashMap<String, Object>();
+        args.put("x-dead-letter-exchange", dlqExchangeName);
+        return new Queue(queueName, true, false, false, args);
+    }
+
+    /**
+     * DLQ 생성
+     */
+    @Bean
+    Queue dlqQueue() {
+        return new Queue(dlqQueueName);
+    }
+
+    /**
+     * Parking Lot Queue 생성
+     */
+    @Bean
+    Queue parkingLotQueue() {
+        return new Queue(parkingLotQueueName);
     }
 
     /**
@@ -64,6 +91,22 @@ public class RabbitMQConfig {
     }
 
     /**
+     * DLX 생성
+     */
+    @Bean
+    TopicExchange dlqExchange() {
+        return new TopicExchange(dlqExchangeName);
+    }
+
+    /**
+     * ParkingLotExchange 생성
+     */
+    @Bean
+    TopicExchange parkingLotExchange() {
+        return new TopicExchange(parkingLotExchangeName);
+    }
+
+    /**
      * 큐와 TopicExchange 바인딩
      */
     @Bean
@@ -82,6 +125,7 @@ public class RabbitMQConfig {
         //foo.bar.direct와 일치하는 queue로 라우팅
         return BindingBuilder.bind(queue).to(directExchange).with("direct");
     }
+
     /**
      * 큐와 FanoutExchange 바인딩
      */
@@ -99,20 +143,31 @@ public class RabbitMQConfig {
     }
 
     @Bean
-    SimpleMessageListenerContainer container(ConnectionFactory connectionFactory,
-                                             MessageListenerAdapter listenerAdapter) {
-        SimpleMessageListenerContainer container = new SimpleMessageListenerContainer();
-        container.setConnectionFactory(connectionFactory);
-        container.setQueueNames(queueName);
-        container.setMessageListener(listenerAdapter); //message listener 등록
-        return container;
+    Binding dlqBinding(Queue dlqQueue, TopicExchange dlqExchange) {
+        return BindingBuilder.bind(dlqQueue).to(dlqExchange).with("foo.bar.#");
     }
 
-    /**
-     * Receiver는 POJO이기 때문에 MessageListenerAdapter로 wrapping해준다.
-     */
     @Bean
-    MessageListenerAdapter listenerAdapter(Receiver receiver) {
-        return new MessageListenerAdapter(receiver, "receiveMessage");
+    Binding parkingLotBinding(Queue parkingLotQueue, TopicExchange parkingLotExchange) {
+        return BindingBuilder.bind(parkingLotQueue).to(parkingLotExchange).with("foo.bar.#");
     }
+
+    @Bean
+    RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory, MessageConverter jackson2JsonMessageConverter) {
+        RabbitTemplate rabbitTemplate = new RabbitTemplate(connectionFactory);
+        rabbitTemplate.setExchange(topicExchangeName);
+        rabbitTemplate.setMessageConverter(jackson2JsonMessageConverter);
+        rabbitTemplate.setMandatory(true);
+        // 메시지가 브로커에 도착했지만 지정된 큐로 라우팅되지 못한 경우
+        rabbitTemplate.setReturnsCallback((returnedMessage) -> {
+            log.info("routingKey: {}, replyText: {}", returnedMessage.getRoutingKey(), returnedMessage.getReplyText());
+        });
+        return rabbitTemplate;
+    }
+
+    @Bean
+    public MessageConverter jackson2JsonMessageConverter() {
+        return new Jackson2JsonMessageConverter();
+    }
+
 }

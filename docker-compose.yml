@@ -1,10 +1,12 @@
-version: '1'
 services:
   rabbitmq:
     container_name: rabbitmq-test
     build:
       dockerfile: Dockerfile
-    image: rabbitmq
+    image: rabbitmq-test:0.1
+    environment:
+      - RABBITMQ_DEFAULT_USER=${AMQP_USER}
+      - RABBITMQ_DEFAULT_PASS=${AMQP_PASS}
     ports:
       - "15672:15672"
       - "5672:5672"

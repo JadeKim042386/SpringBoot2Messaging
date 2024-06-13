@@ -1,11 +1,15 @@
 spring:
   profiles:
-    active: usage_message
-
-logging:
-  level:
-    org: ERROR
-
-tutorial:
-  client:
-    duration: 10000
+    active: local
+  rabbitmq:
+    host: ${AMQP_HOST}
+    port: ${AMQP_PORT}
+    username: ${AMQP_USER}
+    password: ${AMQP_PASS}
+    listener:
+      simple:
+        retry:
+          enabled: true
+          max-attempts: 3
+        acknowledge-mode: manual # default: auto
+    publisher-returns: true
